@@ -45,7 +45,7 @@ void setup() {
   Serial.println("OV767X Test Pattern");
   Serial.println();
 
-  if (!Camera.begin(QCIF, RGB565, 1)) {
+  if (!Camera.begin(QCIF, RGB565, 1, OV7675)) {
     Serial.println("Failed to initialize camera!");
     while (1);
   }

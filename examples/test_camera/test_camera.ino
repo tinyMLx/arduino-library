@@ -22,7 +22,7 @@ void setup() {
   initializeShield();
 
   // Initialize camera
-  if (!Camera.begin(QCIF, RGB565, 1)) {
+  if (!Camera.begin(QCIF, RGB565, 1, OV7675)) {
     Serial.println("Failed to initialize camera");
     while (1);
   }

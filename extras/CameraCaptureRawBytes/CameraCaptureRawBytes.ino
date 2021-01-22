@@ -38,7 +38,7 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
 
-  if (!Camera.begin(QVGA, RGB565, 1)) {
+  if (!Camera.begin(QVGA, RGB565, 1, OV7675)) {
     Serial.println("Failed to initialize camera!");
     while (1);
   }
