@@ -65,7 +65,7 @@ OV767X::~OV767X()
   }
 }
 
-int OV767X::begin(int resolution, int format, int fps)
+int OV767X::begin(int resolution, int format, int fps, int camera_name)
 {
   switch (resolution) {
     case VGA:
@@ -154,7 +154,7 @@ int OV767X::begin(int resolution, int format, int fps)
     return 0;
   }
 
-  ov7670_configure(_ov7670, 1 /*OV7670 = 0, OV7675 = 1*/, format, resolution, 16 /* MHz */, 
+  ov7670_configure(_ov7670, camera_name /*OV7670 = 0, OV7675 = 1*/, format, resolution, 16 /* MHz */, 
                     0 /*pll bypass*/, 1 /* pclk_hb_disable */);
 
   if (ov7670_s_power(_ov7670, 1)) {
