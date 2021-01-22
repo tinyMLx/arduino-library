@@ -3,10 +3,8 @@
   Harvard University 
   tinyMLx - OV7675 Camera Test
 
-  Requires the the Arduino_OV767X library
 */
 
-#include <Arduino_OV767X.h>
 #include <TinyMLShield.h>
 
 bool commandRecv = false; // flag used for indicating receipt of commands from serial port
