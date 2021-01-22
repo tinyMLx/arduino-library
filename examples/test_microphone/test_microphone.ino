@@ -5,18 +5,11 @@
 */
 
 #include <PDM.h>
-
-#define BUTTON_PIN 13
+#include <TinyMLShield.h>
 
 // PDM buffer
 short sampleBuffer[256];
 volatile int samplesRead;
-
-// Variables for button debouncing
-unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 50;
-bool lastButtonState = HIGH;
-bool buttonState;
 
 bool record = false;
 
@@ -24,9 +17,8 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);  
 
-  pinMode(BUTTON_PIN, OUTPUT);
-  digitalWrite(BUTTON_PIN, HIGH);
-  nrf_gpio_cfg_out_with_input(digitalPinToPinName(BUTTON_PIN));
+  // Initialize the TinyML Shield
+  initializeShield();
 
   PDM.onReceive(onPDMdata);
   // Initialize PDM microphone in mono mode with 16 kHz sample rate
@@ -41,23 +33,11 @@ void setup() {
 }
 
 void loop() {
-  bool buttonRead = nrf_gpio_pin_read(digitalPinToPinName(BUTTON_PIN));
-
-  if (buttonRead != lastButtonState) {
-    lastDebounceTime = millis();
+  // see if the button is pressed and turn off or on recording accordingly
+  bool clicked = readShieldButton();
+  if (clicked){
+    record = !record;
   }
-
-  if (millis() - lastDebounceTime >= debounceDelay) {
-    if (buttonRead != buttonState) {
-      buttonState = buttonRead;
-
-      if (!buttonState) {
-        record = !record;
-      }
-    }
-  }
-
-  lastButtonState = buttonRead;
   
   if (samplesRead) {
 
@@ -81,14 +61,4 @@ void onPDMdata() {
   PDM.read(sampleBuffer, bytesAvailable);
 
   samplesRead = bytesAvailable / 2;
-}
-
-void nrf_gpio_cfg_out_with_input(uint32_t pin_number) {
-  nrf_gpio_cfg(
-    pin_number,
-    NRF_GPIO_PIN_DIR_OUTPUT,
-    NRF_GPIO_PIN_INPUT_CONNECT,
-    NRF_GPIO_PIN_PULLUP,
-    NRF_GPIO_PIN_S0S1,
-    NRF_GPIO_PIN_NOSENSE);
 }
