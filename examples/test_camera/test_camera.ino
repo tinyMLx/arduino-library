@@ -7,18 +7,11 @@
 */
 
 #include <Arduino_OV767X.h>
-
-#define BUTTON_PIN 13
+#include <TinyMLShield.h>
 
 bool commandRecv = false; // flag used for indicating receipt of commands from serial port
 bool liveFlag = false; // flag as true to live stream raw camera bytes, set as false to take single images on command
 bool captureFlag = false;
-
-// Variables for button debouncing
-unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 50;
-bool lastButtonState = HIGH;
-bool buttonState;
 
 // Image buffer;
 byte image[176 * 144 * 2]; // QCIF: 176x144 x 2 bytes per pixel (RGB565)
@@ -28,9 +21,7 @@ void setup() {
   Serial.begin(9600);
   while (!Serial);
 
-  pinMode(BUTTON_PIN, OUTPUT);
-  digitalWrite(BUTTON_PIN, HIGH);
-  nrf_gpio_cfg_out_with_input(digitalPinToPinName(BUTTON_PIN));
+  initializeShield();
 
   // Initialize camera
   if (!Camera.begin(QCIF, RGB565, 1)) {
@@ -50,27 +41,14 @@ void loop() {
   int i = 0;
   String command;
 
-  bool buttonRead = nrf_gpio_pin_read(digitalPinToPinName(BUTTON_PIN));
-  
-  if (buttonRead != lastButtonState) {
-    lastDebounceTime = millis();
-  }
-
-  if (millis() - lastDebounceTime >= debounceDelay) {
-    if (buttonRead != buttonState) {
-      buttonState = buttonRead;
-
-      if (!buttonState) {
-        if (!liveFlag) {
-          if (!captureFlag) {
-            captureFlag = true;
-          }
-        }
+  bool clicked = readShieldButton();
+  if (clicked) {
+    if (!liveFlag) {
+      if (!captureFlag) {
+        captureFlag = true;
       }
     }
   }
-
-  lastButtonState = buttonRead;
 
   // Read incoming commands from serial monitor
   while (Serial.available()) {
@@ -132,14 +110,4 @@ void loop() {
       Serial.println();
     }
   }
-}
-
-void nrf_gpio_cfg_out_with_input(uint32_t pin_number) {
-  nrf_gpio_cfg(
-    pin_number,
-    NRF_GPIO_PIN_DIR_OUTPUT,
-    NRF_GPIO_PIN_INPUT_CONNECT,
-    NRF_GPIO_PIN_PULLUP,
-    NRF_GPIO_PIN_S0S1,
-    NRF_GPIO_PIN_NOSENSE);
 }
