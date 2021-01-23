@@ -21,7 +21,7 @@ void setup() {
 
   initializeShield();
 
-  // Initialize camera
+  // Initialize the OV7675 camera
   if (!Camera.begin(QCIF, RGB565, 1, OV7675)) {
     Serial.println("Failed to initialize camera");
     while (1);
