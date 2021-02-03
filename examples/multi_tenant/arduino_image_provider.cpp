@@ -26,11 +26,6 @@ TfLiteStatus GetImage(tflite::ErrorReporter* error_reporter, int image_width,
   static bool g_is_camera_initialized = false;
   static bool serial_is_initialized = false;
 
-  if (!serial_is_initialized) {
-    Serial.begin(9600);
-    serial_is_initialized = true;
-  }
-
   // Initialize camera if necessary
   if (!g_is_camera_initialized) {
     if (!Camera.begin(QCIF, GRAYSCALE, 5, OV7675)) {
@@ -54,9 +49,6 @@ TfLiteStatus GetImage(tflite::ErrorReporter* error_reporter, int image_width,
     }
   }
 
-  // Write image data to serial so we can visualize it
-//  TF_LITE_REPORT_ERROR(error_reporter, "Image data:");
-//  Serial.write((const char*)image_data,96*96); // cast to char for raw binary write to serial monitor
 
   return kTfLiteOk;
 }

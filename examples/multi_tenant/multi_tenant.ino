@@ -85,12 +85,6 @@ void setup() {
   }
 
   // Pull in only the operation implementations we need.
-  // This relies on a complete list of all the ops needed by this graph.
-  // An easier approach is to just use the AllOpsResolver, but this will
-  // incur some penalty in code space for op implementations that are not
-  // needed by this graph.
-  //
-  // tflite::AllOpsResolver resolver;f
   // NOLINTNEXTLINE(runtime-global-variables)
   static tflite::MicroMutableOpResolver<6> micro_op_resolver;
   micro_op_resolver.AddAveragePool2D();

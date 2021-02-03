@@ -54,16 +54,13 @@ bool RespondToKWS(tflite::ErrorReporter* error_reporter, const char* found_comma
     if (found_command[0] == 'n') {
       digitalWrite(LEDR, LOW);  // Red for no
     }
-
-    if (found_command[0] == 'u') {
-      //toggle yellow side LED everytime unknown is heard
-      ++count;
-      if (count & 1) {
-        digitalWrite(LED_BUILTIN, HIGH);
-      } else {
-        digitalWrite(LED_BUILTIN, LOW);
-      }
-    }
+  }
+  //toggle yellow side LED everytime a micro_speech inference is performed
+  ++count;
+  if (count & 1) {
+    digitalWrite(LED_BUILTIN, HIGH);
+  } else {
+    digitalWrite(LED_BUILTIN, LOW);
   }
 
   return false;
