@@ -91,7 +91,7 @@ const tflite::Model* model = nullptr;
 tflite::MicroInterpreter* interpreter = nullptr;
 
 // -------------------------------------------------------------------------------- //
-// UPDATE THESE VARIABLES TO MATCH THE NUMBER AND LIST OF GESUTRES IN YOUR DATASET  //
+// UPDATE THESE VARIABLES TO MATCH THE NUMBER AND LIST OF GESTURES IN YOUR DATASET  //
 // -------------------------------------------------------------------------------- //
 constexpr int label_count = 10;
 const char* labels[label_count] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
