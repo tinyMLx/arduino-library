@@ -672,7 +672,7 @@ void loop() {
 
     int8_t max_score;
     int max_index;
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < label_count; ++i) {
       const int8_t score = output->data.int8[i];
       if ((i == 0) || (score > max_score)) {
         max_score = score;
