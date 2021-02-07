@@ -26,58 +26,60 @@ limitations under the License.
 
 namespace {
 
-const int VERSION = 0x00000000;
+  const int VERSION = 0x00000000;
 
-constexpr int raster_width = 32;
-constexpr int raster_height = 32;
-constexpr int raster_channels = 3;
-constexpr int raster_byte_count = raster_height * raster_width * raster_channels;
-int8_t raster_buffer[raster_byte_count];
+  // Constants for image rasterization
+  constexpr int raster_width = 32;
+  constexpr int raster_height = 32;
+  constexpr int raster_channels = 3;
+  constexpr int raster_byte_count = raster_height * raster_width * raster_channels;
+  int8_t raster_buffer[raster_byte_count];
 
-BLEService        service                       (BLE_SENSE_UUID("0000"));
-BLECharacteristic strokeCharacteristic          (BLE_SENSE_UUID("300a"), BLERead, stroke_struct_byte_count);
-
-// String to calculate the local and device name
-String name;
-
-
-// Create an area of memory to use for input, output, and intermediate arrays.
-// The size of this will depend on the model you're using, and may need to be
-// determined by experimentation.
-constexpr int kTensorArenaSize = 30 * 1024;
-uint8_t tensor_arena[kTensorArenaSize];
-
-tflite::ErrorReporter* error_reporter = nullptr;
-const tflite::Model* model = nullptr;
-tflite::MicroInterpreter* interpreter = nullptr;
-
-// -------------------------------------------------------------------------------- //
-// UPDATE THESE VARIABLES TO MATCH THE NUMBER AND LIST OF GESTURES IN YOUR DATASET  //
-// -------------------------------------------------------------------------------- //
-constexpr int label_count = 10;
-const char* labels[label_count] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
+  // BLE settings
+  BLEService        service                       (BLE_SENSE_UUID("0000"));
+  BLECharacteristic strokeCharacteristic          (BLE_SENSE_UUID("300a"), BLERead, stroke_struct_byte_count);
+  
+  // String to calculate the local and device name
+  String name;
+  
+  // Create an area of memory to use for input, output, and intermediate arrays.
+  // The size of this will depend on the model you're using, and may need to be
+  // determined by experimentation.
+  constexpr int kTensorArenaSize = 30 * 1024;
+  uint8_t tensor_arena[kTensorArenaSize];
+  
+  tflite::ErrorReporter* error_reporter = nullptr;
+  const tflite::Model* model = nullptr;
+  tflite::MicroInterpreter* interpreter = nullptr;
+  
+  // -------------------------------------------------------------------------------- //
+  // UPDATE THESE VARIABLES TO MATCH THE NUMBER AND LIST OF GESTURES IN YOUR DATASET  //
+  // -------------------------------------------------------------------------------- //
+  constexpr int label_count = 10;
+  const char* labels[label_count] = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
 
 }  // namespace
 
 void setup() {
+  // Start serial
   Serial.begin(9600);
-
   Serial.println("Started");
 
+  // Start IMU
   if (!IMU.begin()) {
     Serial.println("Failed to initialized IMU!");
     while (1);
   }
-  
   SetupIMU();
 
+  // Start BLE
   if (!BLE.begin()) {
     Serial.println("Failed to initialized BLE!");
     while (1);
   }
-
   String address = BLE.address();
 
+  // Output BLE settings over Serial
   Serial.print("address = ");
   Serial.println(address);
 
@@ -99,11 +101,10 @@ void setup() {
   service.addCharacteristic(strokeCharacteristic);
 
   BLE.addService(service);
-
   BLE.advertise();
 
 
-    // Set up logging. Google style is to avoid globals or statics because of
+  // Set up logging. Google style is to avoid globals or statics because of
   // lifetime uncertainty, but since this has a trivial destructor it's okay.
   static tflite::MicroErrorReporter micro_error_reporter;  // NOLINT
   error_reporter = &micro_error_reporter;
@@ -138,6 +139,7 @@ void setup() {
   // Allocate memory from the tensor_arena for the model's tensors.
   interpreter->AllocateTensors();
 
+  // Set model input settings
   TfLiteTensor* model_input = interpreter->input(0);
   if ((model_input->dims->size != 4) || (model_input->dims->data[0] != 1) ||
       (model_input->dims->data[1] != raster_height) ||
@@ -149,6 +151,7 @@ void setup() {
     return;
   }
 
+  // Set model output settings
   TfLiteTensor* model_output = interpreter->output(0);
   if ((model_output->dims->size != 2) || (model_output->dims->data[0] != 1) ||
       (model_output->dims->data[1] != label_count) ||
@@ -171,16 +174,17 @@ void loop() {
     Serial.println(central.address());
   }
   was_connected_last = central;
-  
+
+  // make sure IMU data is available then read in data
   const bool data_available = IMU.accelerationAvailable() || IMU.gyroscopeAvailable();
   if (!data_available) {
     return;
   }
-
   int accelerometer_samples_read;
   int gyroscope_samples_read;
   ReadAccelerometerAndGyroscope(&accelerometer_samples_read, &gyroscope_samples_read);
 
+  // Parse and process IMU data
   bool done_just_triggered = false;
   if (gyroscope_samples_read > 0) {
     EstimateGyroscopeDrift(current_gyroscope_drift);
@@ -190,13 +194,14 @@ void loop() {
       strokeCharacteristic.writeValue(stroke_struct_buffer, stroke_struct_byte_count);
     }
   }
-
   if (accelerometer_samples_read > 0) {
     EstimateGravityDirection(current_gravity);
     UpdateVelocity(accelerometer_samples_read, current_gravity);
   }
 
+  // Wait for a gesture to be done
   if (done_just_triggered) {
+    // Rasterize the gesture
     RasterizeStroke(stroke_points, *stroke_transmit_length, 0.6f, 0.6f, raster_width, raster_height, raster_buffer);
     for (int y = 0; y < raster_height; ++y) {
       char line[raster_width + 1];
@@ -216,20 +221,20 @@ void loop() {
       line[raster_width] = 0;
       Serial.println(line);
     }
-    
+
+    // Pass to the model and run the interpreter
     TfLiteTensor* model_input = interpreter->input(0);
     for (int i = 0; i < raster_byte_count; ++i) {
       model_input->data.int8[i] = raster_buffer[i];
     }
-
     TfLiteStatus invoke_status = interpreter->Invoke();
     if (invoke_status != kTfLiteOk) {
       TF_LITE_REPORT_ERROR(error_reporter, "Invoke failed");
       return;
     }
-   
     TfLiteTensor* output = interpreter->output(0);
 
+    // Parse the model output
     int8_t max_score;
     int max_index;
     for (int i = 0; i < label_count; ++i) {
