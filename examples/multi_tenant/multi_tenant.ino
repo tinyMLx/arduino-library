@@ -197,7 +197,7 @@ void loop() {
   bool heardYes = RespondToKWS(error_reporter, found_command, is_new_command, score);
 
   if(heardYes){
-    //Our keyword spotting model heard 'yes' so we detect if a person is visable 
+    //Our keyword spotting model heard 'yes' so we detect if a person is visible 
     
      // Get image from provider.
     if (kTfLiteOk != GetImage(error_reporter, kNumCols, kNumRows, kNumChannels,
