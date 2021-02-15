@@ -14,7 +14,6 @@ namespace {
   constexpr int moving_sample_count = 50;
   
   static float current_velocity[3] = {0.0f, 0.0f, 0.0f};
-  static float current_position[3] = {0.0f, 0.0f, 0.0f};
   static float current_gravity[3] = {0.0f, 0.0f, 0.0f};
   static float current_gyroscope_drift[3] = {0.0f, 0.0f, 0.0f};
   
@@ -185,15 +184,11 @@ namespace {
       current_velocity[0] *= friction_fudge;
       current_velocity[1] *= friction_fudge;
       current_velocity[2] *= friction_fudge;
-      
-      // Update the position estimate based on the velocity.
-      current_position[0] += current_velocity[0];
-      current_position[1] += current_velocity[1];
-      current_position[2] += current_velocity[2];
     }
   }
   
   void EstimateGyroscopeDrift(float* drift) {
+    // Estimate and update the drift of the gyroscope when the Ardiuno is not moving
     const bool isMoving = VectorMagnitude(current_velocity) > 0.1f;
     if (isMoving) {
       return;
@@ -227,6 +222,7 @@ namespace {
   }
   
   void UpdateOrientation(int new_samples, float* gravity, float* drift) {
+    //update the current orientation by integrating the angular velocity over time
     const float drift_x = drift[0];
     const float drift_y = drift[1];
     const float drift_z = drift[2];
@@ -269,6 +265,9 @@ namespace {
   }
   
   bool IsMoving(int samples_before) {
+    //calculate if the Arduino is move using the mean squared difference
+    //of the current and previous gyroscope data
+    //Note: this is different from how we calulate isMoving in EstimateGyroscopeDrift()
     constexpr float moving_threshold = 10.0f;
     
     if ((gyroscope_data_index - samples_before) < moving_sample_count) {
@@ -296,15 +295,21 @@ namespace {
   }
   
   void UpdateStroke(int new_samples, bool* done_just_triggered) {
+    //Take the angular values and project them into an XY plane
+    
+    
     constexpr int minimum_stroke_length = moving_sample_count + 10;
     constexpr float minimum_stroke_size = 0.2f;
   
     *done_just_triggered = false;
-  
+
+    //iterate through the new samples
     for (int i = 0; i < new_samples; ++i) {
       const int current_head = (new_samples - (i + 1));
       const bool is_moving = IsMoving(current_head);
       const int32_t old_state = *stroke_state;
+
+      //determine if there is a break between gestures
       if ((old_state == eWaiting) || (old_state == eDone)) {
         if (is_moving) {
           stroke_length = moving_sample_count;
@@ -320,7 +325,8 @@ namespace {
           }
         }
       }
-    
+
+      //if the stroke is too small we skip to the next iteration
       const bool is_waiting = (*stroke_state == eWaiting);
       if (is_waiting) {
         continue;
@@ -341,7 +347,8 @@ namespace {
       const int start_index = ((gyroscope_data_index + 
         (gyroscope_data_length - (3 * (stroke_length + current_head)))) % 
         gyroscope_data_length);
-  
+
+      //accumulate the x, y, and z orintation data
       float x_total = 0.0f;
       float y_total = 0.0f;
       float z_total = 0.0f;
@@ -357,7 +364,8 @@ namespace {
       const float y_mean = y_total / stroke_length;
       const float z_mean = z_total / stroke_length;
       constexpr float range = 90.0f;
-  
+
+      //Account for the roll orientation of the Arduino
       const float gy = current_gravity[1];
       const float gz = current_gravity[2];
       float gmag = sqrtf((gy * gy) + (gz * gz));
@@ -374,7 +382,8 @@ namespace {
       const float yaxisy = ngz;
       
       *stroke_transmit_length = stroke_length / stroke_transmit_stride;
-  
+
+      //project the angular orientation into the 2d X/Y plane
       float x_min;
       float y_min;
       float x_max;
@@ -396,7 +405,8 @@ namespace {
   
         const int stroke_index = j * 2;
         int8_t* stroke_entry = &stroke_points[stroke_index];
-        
+
+        //cap the x/y values at -128 and 127 (int8)
         int32_t unchecked_x = static_cast<int32_t>(roundf(x_axis * 128.0f));
         int8_t stored_x;
         if (unchecked_x > 127) {

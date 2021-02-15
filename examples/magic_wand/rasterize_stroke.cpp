@@ -67,9 +67,11 @@ void RasterizeStroke(
     int width, 
     int height,
     int8_t* out_buffer) {
+  //Convert stroke (2d coordinates of the gesture) into a 2d color image 
   constexpr int num_channels = 3;
   const int buffer_byte_count = height * width * num_channels;
 
+  //initialize all pixels to black
   for (int i = 0; i < buffer_byte_count; ++i) {
     out_buffer[i] = -128;
   }
@@ -86,6 +88,9 @@ void RasterizeStroke(
   const int one_half_fp = (kFixedPoint / 2);
 
   for (int point_index = 0; point_index < (stroke_points_count - 1); ++point_index) {
+    //Iterate through the stroke and select two sequential start and end coordinate pairs
+    // to form the a line segment
+    //example: Stroke points = [a,b,c...] then we would iterate start=a end=b, start=b end=c...
     const int8_t* start_point = &stroke_points[point_index * 2];
     const int32_t start_point_x_fp = (start_point[0] * kFixedPoint) / 128;
     const int32_t start_point_y_fp = (start_point[1] * kFixedPoint) / 128;
@@ -101,6 +106,8 @@ void RasterizeStroke(
     const int32_t delta_x_fp = end_x_fp - start_x_fp;
     const int32_t delta_y_fp = end_y_fp - start_y_fp;
 
+    //assign the color of the pixels of this line segment
+    // the color shifts from red->green->blue as we get later in the gesture
     const int32_t t_fp = point_index * t_inc_fp;
     int32_t red_i32;
     int32_t green_i32;
@@ -145,6 +152,7 @@ void RasterizeStroke(
       }
     }
     for (int i = 0; i < (line_length + 1); ++i) {
+      //iterate through the line segment and assign the pixel values
       const int32_t x_fp = start_x_fp + (i * x_inc_fp);
       const int32_t y_fp = start_y_fp + (i * y_inc_fp);
       const int x = RoundFPToInt(x_fp);
