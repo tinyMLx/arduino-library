@@ -15,7 +15,7 @@
 #ifndef ARDUINO_EXCLUDE_CODE
 
 #include "Arduino.h"
-#include "Arduino_OV767X.h"
+#include <TinyMLShield.h>
 
 // Get an image from the camera module
 TfLiteStatus GetImage(tflite::ErrorReporter* error_reporter, int image_width,

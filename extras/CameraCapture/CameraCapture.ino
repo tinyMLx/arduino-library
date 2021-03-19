@@ -34,7 +34,7 @@
   This example code is in the public domain.
 */
 
-#include <Arduino_OV767X.h>
+#include <TinyMLShield.h>
 
 unsigned short pixels[176 * 144]; // QCIF: 176x144 X 2 bytes per pixel (RGB565)
 
