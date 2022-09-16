@@ -7,6 +7,6 @@
 #ifndef _ARUDINO_OV767X_H_
 #define _ARUDINO_OV767X_H_
 
-#include "OV767X.h"
+#include "OV767X_TinyMLx.h"
 
 #endif

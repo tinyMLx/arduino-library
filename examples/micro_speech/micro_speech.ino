@@ -1,4 +1,4 @@
-/* Copyright 2019 The TensorFlow Authors. All Rights Reserved.
+/* Copyright 2020 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,47 +17,35 @@ limitations under the License.
 
 #include "main_functions.h"
 
-#include "detection_responder.h"
-#include "image_provider.h"
-#include "model_settings.h"
-#include "person_detect_model_data.h"
-
 #include "audio_provider.h"
+#include "command_responder.h"
 #include "feature_provider.h"
 #include "micro_features_micro_model_settings.h"
 #include "micro_features_model.h"
 #include "recognize_commands.h"
-
 #include "tensorflow/lite/micro/micro_error_reporter.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
 
-#include "Arduino.h"
-
 // Globals, used for compatibility with Arduino-style sketches.
 namespace {
 tflite::ErrorReporter* error_reporter = nullptr;
-
-const tflite::Model* vww_model = nullptr;
-tflite::MicroInterpreter* vww_interpreter = nullptr;
-TfLiteTensor* vww_input = nullptr;
-TfLiteTensor* vww_output = nullptr;
-
-const tflite::Model* kws_model = nullptr;
-tflite::MicroInterpreter* kws_interpreter = nullptr;
-TfLiteTensor* kws_input = nullptr;
-TfLiteTensor* kws_output = nullptr;
+const tflite::Model* model = nullptr;
+tflite::MicroInterpreter* interpreter = nullptr;
+TfLiteTensor* model_input = nullptr;
 FeatureProvider* feature_provider = nullptr;
 RecognizeCommands* recognizer = nullptr;
 int32_t previous_time = 0;
+
+// Create an area of memory to use for input, output, and intermediate arrays.
+// The size of this will depend on the model you're using, and may need to be
+// determined by experimentation.
+constexpr int kTensorArenaSize = 10 * 1024;
+uint8_t tensor_arena[kTensorArenaSize];
 int8_t feature_buffer[kFeatureElementCount];
 int8_t* model_input_buffer = nullptr;
-
-// An area of memory to use for input, output, and intermediate arrays.
-constexpr int kTensorArenaSize = 136 * 1024;
-static uint8_t tensor_arena[kTensorArenaSize];
 }  // namespace
 
 // The name of this function is important for Arduino compatibility.
@@ -68,76 +56,62 @@ void setup() {
   static tflite::MicroErrorReporter micro_error_reporter;
   error_reporter = &micro_error_reporter;
 
-  //create the allocator that will be shared between models
-  tflite::MicroAllocator* allocator =
-      tflite::MicroAllocator::Create(tensor_arena, kTensorArenaSize,
-                                              error_reporter);
-
   // Map the model into a usable data structure. This doesn't involve any
   // copying or parsing, it's a very lightweight operation.
-  vww_model = tflite::GetModel(g_person_detect_model_data);
-  if (vww_model->version() != TFLITE_SCHEMA_VERSION) {
+  model = tflite::GetModel(g_model);
+  if (model->version() != TFLITE_SCHEMA_VERSION) {
     TF_LITE_REPORT_ERROR(error_reporter,
                          "Model provided is schema version %d not equal "
                          "to supported version %d.",
-                         vww_model->version(), TFLITE_SCHEMA_VERSION);
+                         model->version(), TFLITE_SCHEMA_VERSION);
     return;
   }
 
   // Pull in only the operation implementations we need.
+  // This relies on a complete list of all the ops needed by this graph.
+  // An easier approach is to just use the AllOpsResolver, but this will
+  // incur some penalty in code space for op implementations that are not
+  // needed by this graph.
+  //
+  // tflite::AllOpsResolver resolver;
   // NOLINTNEXTLINE(runtime-global-variables)
-  static tflite::MicroMutableOpResolver<6> micro_op_resolver;
-  micro_op_resolver.AddAveragePool2D();
-  micro_op_resolver.AddConv2D();
-  micro_op_resolver.AddDepthwiseConv2D();
-  micro_op_resolver.AddReshape();
-  micro_op_resolver.AddSoftmax();
-  micro_op_resolver.AddFullyConnected();
+  static tflite::MicroMutableOpResolver<4> micro_op_resolver(error_reporter);
+  if (micro_op_resolver.AddDepthwiseConv2D() != kTfLiteOk) {
+    return;
+  }
+  if (micro_op_resolver.AddFullyConnected() != kTfLiteOk) {
+    return;
+  }
+  if (micro_op_resolver.AddSoftmax() != kTfLiteOk) {
+    return;
+  }
+  if (micro_op_resolver.AddReshape() != kTfLiteOk) {
+    return;
+  }
 
-  // Build an interpreter to run the VWW model
-  // NOLINTNEXTLINE(runtime-global-variables)
-  static tflite::MicroInterpreter vww_static_interpreter(
-      vww_model, micro_op_resolver, allocator, error_reporter);
-  vww_interpreter = &vww_static_interpreter;
+  // Build an interpreter to run the model with.
+  static tflite::MicroInterpreter static_interpreter(
+      model, micro_op_resolver, tensor_arena, kTensorArenaSize, error_reporter);
+  interpreter = &static_interpreter;
 
-  //allocate the VWW model from tensor_arena
-  TfLiteStatus allocate_status = vww_interpreter->AllocateTensors();
+  // Allocate memory from the tensor_arena for the model's tensors.
+  TfLiteStatus allocate_status = interpreter->AllocateTensors();
   if (allocate_status != kTfLiteOk) {
     TF_LITE_REPORT_ERROR(error_reporter, "AllocateTensors() failed");
     return;
   }
-  
-  vww_input = vww_interpreter->input(0);
-  vww_output = vww_interpreter->output(0);
 
- //Initialize the kws model
-  kws_model = tflite::GetModel(g_model);
-  if (kws_model->version() != TFLITE_SCHEMA_VERSION) {
+  // Get information about the memory area to use for the model's input.
+  model_input = interpreter->input(0);
+  if ((model_input->dims->size != 2) || (model_input->dims->data[0] != 1) ||
+      (model_input->dims->data[1] !=
+       (kFeatureSliceCount * kFeatureSliceSize)) ||
+      (model_input->type != kTfLiteInt8)) {
     TF_LITE_REPORT_ERROR(error_reporter,
-                         "Model provided is schema version %d not equal "
-                         "to supported version %d.",
-                         kws_model->version(), TFLITE_SCHEMA_VERSION);
+                         "Bad input tensor parameters in model");
     return;
   }
-  
-
-  // Build an interpreter to run the KWS model. The allocator is reused
-  // NOLINTNEXTLINE(runtime-global-variables)
-  static tflite::MicroInterpreter kws_static_interpreter(
-      kws_model, micro_op_resolver, allocator, error_reporter);
-  kws_interpreter = &kws_static_interpreter;
-
-  //allocate the KWS model from tensor_arena. Some head space is saved
-  allocate_status = kws_interpreter->AllocateTensors();
-  if (allocate_status != kTfLiteOk) {
-    TF_LITE_REPORT_ERROR(error_reporter, "AllocateTensors() failed");
-    return;
-  }
-
-  kws_input = kws_interpreter->input(0);
-  kws_output = kws_interpreter->output(0);
-  model_input_buffer = kws_input->data.int8;
-
+  model_input_buffer = model_input->data.int8;
 
   // Prepare to access the audio spectrograms from a microphone or other source
   // that will provide the inputs to the neural network.
@@ -176,43 +150,28 @@ void loop() {
   }
 
   // Run the model on the spectrogram input and make sure it succeeds.
-  TfLiteStatus invoke_status = kws_interpreter->Invoke();
+  TfLiteStatus invoke_status = interpreter->Invoke();
   if (invoke_status != kTfLiteOk) {
     TF_LITE_REPORT_ERROR(error_reporter, "Invoke failed");
     return;
   }
-  
 
+  // Obtain a pointer to the output tensor
+  TfLiteTensor* output = interpreter->output(0);
+  // Determine whether a command was recognized based on the output of inference
   const char* found_command = nullptr;
   uint8_t score = 0;
   bool is_new_command = false;
   TfLiteStatus process_status = recognizer->ProcessLatestResults(
-      kws_output, current_time, &found_command, &score, &is_new_command);
+      output, current_time, &found_command, &score, &is_new_command);
   if (process_status != kTfLiteOk) {
     TF_LITE_REPORT_ERROR(error_reporter,
                          "RecognizeCommands::ProcessLatestResults() failed");
     return;
   }
-
-  bool heardYes = RespondToKWS(error_reporter, found_command, is_new_command, score);
-
-  if(heardYes){
-    //Our keyword spotting model heard 'yes' so we detect if a person is visible 
-    
-     // Get image from provider.
-    if (kTfLiteOk != GetImage(error_reporter, kNumCols, kNumRows, kNumChannels,
-                              vww_input->data.int8)) {
-      TF_LITE_REPORT_ERROR(error_reporter, "Image capture failed.");
-    }
-  
-    // Run the model on this input and make sure it succeeds.
-    if (kTfLiteOk != vww_interpreter->Invoke()) {
-      TF_LITE_REPORT_ERROR(error_reporter, "Invoke failed.");
-    }
-  
-    // Process the inference results.
-    int8_t person_score = vww_output->data.uint8[kPersonIndex];
-    int8_t no_person_score = vww_output->data.uint8[kNotAPersonIndex];
-    RespondToDetection(error_reporter, person_score, no_person_score);
-  }
+  // Do something based on the recognized command. The default implementation
+  // just prints to the error console, but you should replace this with your
+  // own function for a real application.
+  RespondToCommand(error_reporter, current_time, found_command, score,
+                   is_new_command);
 }

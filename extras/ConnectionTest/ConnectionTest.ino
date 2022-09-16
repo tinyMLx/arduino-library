@@ -27,7 +27,7 @@
   
 */
 
-#include <Arduino_OV767X.h>
+#include <TinyMLShield.h>
 #include <Arduino_CRC32.h>
 
 int bytesPerFrame;

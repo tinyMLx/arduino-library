@@ -1,4 +1,4 @@
-#include "Arduino_OV767X.h"
+#include "Arduino_OV767X_TinyMLx.h"
 #define BUTTON_PIN 13
 
 // Custom shield button pin setting

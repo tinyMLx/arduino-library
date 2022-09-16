@@ -19,86 +19,75 @@ limitations under the License.
 
 #ifndef ARDUINO_EXCLUDE_CODE
 
-#include "detection_responder.h"
+#include "command_responder.h"
 
 #include "Arduino.h"
 
-bool RespondToKWS(tflite::ErrorReporter* error_reporter, const char* found_command, bool is_new_command, int8_t score){
+// Toggles the built-in LED every inference, and lights a colored LED depending
+// on which word was detected.
+void RespondToCommand(tflite::ErrorReporter* error_reporter,
+                      int32_t current_time, const char* found_command,
+                      uint8_t score, bool is_new_command) {
+  static bool is_initialized = false;
   if (!is_initialized) {
     pinMode(LED_BUILTIN, OUTPUT);
     // Pins for the built-in RGB LEDs on the Arduino Nano 33 BLE Sense
     pinMode(LEDR, OUTPUT);
     pinMode(LEDG, OUTPUT);
     pinMode(LEDB, OUTPUT);
-    is_initialized = true;
-  }
-
-    // Ensure the LED is off.
+    // Ensure the LED is off by default.
     // Note: The RGB LEDs on the Arduino Nano 33 BLE
     // Sense are on when the pin is LOW, off when HIGH.
     digitalWrite(LEDR, HIGH);
     digitalWrite(LEDG, HIGH);
     digitalWrite(LEDB, HIGH);
-
-  static int count = 0; //static so only initialize the first time
+    is_initialized = true;
+  }
+  static int32_t last_command_time = 0;
+  static int count = 0;
+  static int certainty = 220;
 
   if (is_new_command) {
-    TF_LITE_REPORT_ERROR(error_reporter, "Heard %s (score: %d)", found_command,
-                         score);
+    TF_LITE_REPORT_ERROR(error_reporter, "Heard %s (%d) @%dms", found_command,
+                         score, current_time);
     // If we hear a command, light up the appropriate LED
     if (found_command[0] == 'y') {
-      digitalWrite(LEDB, LOW);  // Blue for yes
-      return true;
+      last_command_time = current_time;
+      digitalWrite(LEDG, LOW);  // Green for yes
     }
 
     if (found_command[0] == 'n') {
+      last_command_time = current_time;
       digitalWrite(LEDR, LOW);  // Red for no
     }
+
+    if (found_command[0] == 'u') {
+      last_command_time = current_time;
+      digitalWrite(LEDB, LOW);  // Blue for unknown
+    }
   }
-  //toggle yellow side LED everytime a micro_speech inference is performed
+
+  // If last_command_time is non-zero but was >3 seconds ago, zero it
+  // and switch off the LED.
+  if (last_command_time != 0) {
+    if (last_command_time < (current_time - 3000)) {
+      last_command_time = 0;
+      digitalWrite(LED_BUILTIN, LOW);
+      digitalWrite(LEDR, HIGH);
+      digitalWrite(LEDG, HIGH);
+      digitalWrite(LEDB, HIGH);
+    }
+    // If it is non-zero but <3 seconds ago, do nothing.
+    return;
+  }
+
+  // Otherwise, toggle the LED every time an inference is performed.
   ++count;
   if (count & 1) {
     digitalWrite(LED_BUILTIN, HIGH);
   } else {
     digitalWrite(LED_BUILTIN, LOW);
   }
-
-  return false;
-  
-}
-
-
-// Flash the blue LED after each inference
-void RespondToDetection(tflite::ErrorReporter* error_reporter,
-                        int8_t person_score, int8_t no_person_score) {
-  if (!is_initialized) {
-    // Pins for the built-in RGB LEDs on the Arduino Nano 33 BLE Sense
-    pinMode(LEDR, OUTPUT);
-    pinMode(LEDG, OUTPUT);
-    pinMode(LEDB, OUTPUT);
-    is_initialized = true;
-  }
-
-  // Note: The RGB LEDs on the Arduino Nano 33 BLE
-  // Sense are on when the pin is LOW, off when HIGH.
-
-  // Switch the person/not person LEDs off
-  digitalWrite(LEDG, HIGH);
-  digitalWrite(LEDR, HIGH);
-  digitalWrite(LEDB, HIGH);
-
-  // Switch on the green LED when a person is detected,
-  // the red when no person is detected
-  if (person_score > no_person_score) {
-    digitalWrite(LEDG, LOW);
-    digitalWrite(LEDR, HIGH);
-  } else {
-    digitalWrite(LEDG, HIGH);
-    digitalWrite(LEDR, LOW);
-  }
-
-  TF_LITE_REPORT_ERROR(error_reporter, "Person score: %d No person score: %d",
-                       person_score, no_person_score);
 }
 
 #endif  // ARDUINO_EXCLUDE_CODE

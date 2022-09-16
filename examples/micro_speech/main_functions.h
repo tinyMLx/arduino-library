@@ -13,13 +13,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef TENSORFLOW_LITE_MICRO_EXAMPLES_PERSON_DETECTION_ARDUINO_HM01B0_PLATFORM_H_
-#define TENSORFLOW_LITE_MICRO_EXAMPLES_PERSON_DETECTION_ARDUINO_HM01B0_PLATFORM_H_
+#ifndef TENSORFLOW_LITE_MICRO_EXAMPLES_MICRO_SPEECH_MAIN_FUNCTIONS_H_
+#define TENSORFLOW_LITE_MICRO_EXAMPLES_MICRO_SPEECH_MAIN_FUNCTIONS_H_
 
-#if defined(ARDUINO) && defined(ARDUINO_SFE_EDGE)
-#include "hm01b0_platform_edge.h"
-#define HM01B0_PIN_TRIG 0  // unused
-#define HM01B0_PIN_INT 0   // unused
-#endif                     // defined(ARDUINO) && defined(ARDUINO_SFE_EDGE)
+// Expose a C friendly interface for main functions.
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#endif  // TENSORFLOW_LITE_MICRO_EXAMPLES_PERSON_DETECTION_ARDUINO_HM01B0_PLATFORM_H_
+// Initializes all data needed for the example. The name is important, and needs
+// to be setup() for Arduino compatibility.
+void setup();
+
+// Runs one iteration of data gathering and inference. This should be called
+// repeatedly from the application code. The name needs to be loop() for Arduino
+// compatibility.
+void loop();
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif  // TENSORFLOW_LITE_MICRO_EXAMPLES_MICRO_SPEECH_MAIN_FUNCTIONS_H_

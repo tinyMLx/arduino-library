@@ -15,7 +15,7 @@
 #ifndef ARDUINO_EXCLUDE_CODE
 
 #include "Arduino.h"
-#include "Arduino_OV767X.h"
+#include <TinyMLShield.h>
 
 // Get an image from the camera module
 TfLiteStatus GetImage(tflite::ErrorReporter* error_reporter, int image_width,
@@ -25,11 +25,6 @@ TfLiteStatus GetImage(tflite::ErrorReporter* error_reporter, int image_width,
 
   static bool g_is_camera_initialized = false;
   static bool serial_is_initialized = false;
-
-  if (!serial_is_initialized) {
-    Serial.begin(9600);
-    serial_is_initialized = true;
-  }
 
   // Initialize camera if necessary
   if (!g_is_camera_initialized) {
@@ -54,9 +49,6 @@ TfLiteStatus GetImage(tflite::ErrorReporter* error_reporter, int image_width,
     }
   }
 
-  // Write image data to serial so we can visualize it
-//  TF_LITE_REPORT_ERROR(error_reporter, "Image data:");
-//  Serial.write((const char*)image_data,96*96); // cast to char for raw binary write to serial monitor
 
   return kTfLiteOk;
 }

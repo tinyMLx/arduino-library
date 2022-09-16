@@ -7,7 +7,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-#include "OV767X.h"
+#include "OV767X_TinyMLx.h"
 
 // if not defined in the variant
 #ifndef digitalPinToBitMask
