@@ -12,13 +12,13 @@
 
 int bytesPerFrame;
 
-byte data[176 * 144 * 2]; // QVGA: 320x240 X 2 bytes per pixel (RGB565)
+byte data[176 * 144 * 2]; // QCIF: 176x144 X 2 bytes per pixel (RGB565)
 
 void setup() {
   Serial.begin(9600);
   while (!Serial);
 
-  if (!Camera.begin(QVGA, RGB565, 1, OV7675)) {
+  if (!Camera.begin(QCIF, RGB565, 1, OV7675)) {
     Serial.println("Failed to initialize camera!");
     while (1);
   }
