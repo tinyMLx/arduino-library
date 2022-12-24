@@ -198,12 +198,20 @@ int OV767X::height() const
 
 int OV767X::bitsPerPixel() const
 {
-  return _bytesPerPixel * 8;
+  if (_grayscale) {
+    return 8;
+  } else {
+    return _bytesPerPixel * 8;
+  }
 }
 
 int OV767X::bytesPerPixel() const
 {
-  return _bytesPerPixel;
+  if (_grayscale) {
+    return 1;
+  } else {
+    return _bytesPerPixel;
+  }
 }
 
 //
