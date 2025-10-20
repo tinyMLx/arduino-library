@@ -7,6 +7,8 @@
 */
 
 #include <Arduino_LSM9DS1.h>
+// if using Nano BLE rev2, uncomment next line
+// #include <Arduino_BMI270_BMM150.h>
 
 int imuIndex = 0; // 0 - accelerometer, 1 - gyroscope, 2 - magnetometer
 bool commandRecv = false; // flag used for indicating receipt of commands from serial port
@@ -21,6 +23,8 @@ void setup() {
     Serial.println("Failed to initialize IMU");
     while (1);
   }
+
+  IMU.setContinuousMode();
 
   Serial.println("Welcome to the IMU test for the built-in IMU on the Nano 33 BLE Sense\n");
   Serial.println("Available commands:");

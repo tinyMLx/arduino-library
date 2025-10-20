@@ -12,6 +12,9 @@ limitations under the License.
 
 #include <TensorFlowLite.h>
 
+// if using Nano BLE rev2, uncomment next line
+// #define NANO33_BLE_REV2
+
 #include "tensorflow/lite/micro/micro_error_reporter.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
