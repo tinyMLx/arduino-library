@@ -6,7 +6,7 @@
   Requires the Arduino_LSM9DS1 library library
 */
 
-// If you are using a Nano BLE rev2, uncomment the next line:
+// If you are using a Nano 33 BLE rev2, uncomment the next line:
 // #define NANO33_BLE_REV2
 
 #ifdef NANO33_BLE_REV2
