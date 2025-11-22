@@ -12,7 +12,7 @@ limitations under the License.
 
 #include <TensorFlowLite.h>
 
-// if using Nano BLE rev2, uncomment next line
+// If you are using a Nano BLE rev2, uncomment the next line:
 // #define NANO33_BLE_REV2
 
 #include "tensorflow/lite/micro/micro_error_reporter.h"
@@ -66,6 +66,8 @@ namespace {
 void setup() {
   // Start serial
   Serial.begin(9600);
+  while (!Serial);
+
   Serial.println("Started");
 
   // Start IMU
