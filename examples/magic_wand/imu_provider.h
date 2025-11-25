@@ -1,7 +1,12 @@
 #ifndef MAGIC_WAND_IMU_PROVIDER_H
 #define MAGIC_WAND_IMU_PROVIDER_H
 
+#ifdef NANO33_BLE_REV2
+#include <Arduino_BMI270_BMM150.h>
+#else
 #include <Arduino_LSM9DS1.h>
+#endif
+
 #include <ArduinoBLE.h>
 
 namespace {
@@ -60,7 +65,7 @@ namespace {
     *new_accelerometer_samples = 0;
     *new_gyroscope_samples = 0;
     // Loop through new samples and add to buffer
-    while (IMU.accelerationAvailable()) {
+    if (IMU.accelerationAvailable()) {
       const int gyroscope_index = (gyroscope_data_index % gyroscope_data_length);
       gyroscope_data_index += 3;
       float* current_gyroscope_data = &gyroscope_data[gyroscope_index];
@@ -68,7 +73,6 @@ namespace {
       if (!IMU.readGyroscope(
           current_gyroscope_data[0], current_gyroscope_data[1], current_gyroscope_data[2])) {
         Serial.println("Failed to read gyroscope data");
-        break;
       }
       *new_gyroscope_samples += 1;
   
@@ -79,7 +83,6 @@ namespace {
       if (!IMU.readAcceleration(
           current_acceleration_data[0], current_acceleration_data[1], current_acceleration_data[2])) {
         Serial.println("Failed to read acceleration data");
-        break;
       }
       *new_accelerometer_samples += 1;
     }
@@ -89,7 +92,7 @@ namespace {
     // Keep track of whether we stored any new data
     int new_samples = 0;
     // Loop through new samples and add to buffer
-    while (IMU.gyroscopeAvailable()) {
+    if (IMU.gyroscopeAvailable()) {
       const int index = (gyroscope_data_index % gyroscope_data_length);
       gyroscope_data_index += 3;
       float* data = &gyroscope_data[index];
