@@ -99,7 +99,6 @@ namespace {
       // Read each sample, removing it from the device's FIFO buffer
       if (!IMU.readGyroscope(data[0], data[1], data[2])) {
         Serial.println("Failed to read gyroscope data");
-        break;
       }
       new_samples += 1;
     }
