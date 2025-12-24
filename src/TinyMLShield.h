@@ -1,5 +1,5 @@
 #include "Arduino_OV767X_TinyMLx.h"
-#define BUTTON_PIN 13
+#include "TinyMLx_board.h"
 
 // Custom shield button pin setting
 void nrf_gpio_cfg_out_with_input(uint32_t pin_number) {
